@@ -193,6 +193,38 @@ def test_custom_mixer_attr():
 		_ = unattached.container
 	assert "not attached to a mixer" in str(exc.value)
 
+def test_add_mixin_instance():
+	mixer = Mixer()
+	
+	# Create a mixin instance directly
+	counter = CounterMixin()
+	counter.value = 42  # Pre-configure the instance
+	
+	# Add the instance
+	mixer.add_mixin_instance("counter", counter)
+	
+	# Verify instance was added correctly
+	assert mixer.counter is counter
+	assert hasattr(mixer, "increment")
+	assert hasattr(mixer, "decrement")
+	assert mixer.counter.value == 42
+	
+	# Verify methods work
+	assert mixer.increment() == 43
+	assert mixer.decrement() == 42
+	
+	# Test adding invalid instance
+	class NotAMixin:
+		pass
+	
+	with pytest.raises(InvalidMixinError):
+		mixer.add_mixin_instance("invalid", NotAMixin())
+	
+	# Test duplicate name
+	counter2 = CounterMixin()
+	with pytest.raises(DuplicateMixinError):
+		mixer.add_mixin_instance("counter", counter2)
+
 def test_call_all_mixins():
 	mixer = Mixer()
 	
