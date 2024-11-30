@@ -1,0 +1,137 @@
+# Mixit
+
+A lightweight and flexible mixin system for Python that allows dynamic composition of functionality through mixins.
+
+## Features
+
+- Dynamic mixin composition at runtime
+- Method export system with conflict detection
+- Optional initialization through `mix_init`
+- Clean mixin coordination through mixer access
+- Simple and intuitive API
+
+## Installation
+
+```bash
+pip install git+https://github.com/joshms123/mixit.git
+```
+
+## Quick Start
+
+```python
+from mixit import Mixer, Mixin, export
+
+# Define a mixin
+class LoggerMixin(Mixin):
+    def __init__(self):
+        super().__init__()
+        self.logs = []
+        self.prefix = ""
+    
+    def mix_init(self, prefix: str = "", **kwargs):
+        self.prefix = prefix
+    
+    @export
+    def log(self, message: str):
+        self.logs.append(f"{self.prefix}{message}")
+        return len(self.logs)
+
+# Create a mixer and add the mixin
+mixer = Mixer()
+mixer.add_mixin("logger", LoggerMixin, prefix="[INFO] ")
+
+# Use the exported method
+mixer.log("Hello world!")  # Returns: 1
+print(mixer.logger.logs)   # Prints: ['[INFO] Hello world!']
+```
+
+## Core Concepts
+
+### Mixins
+
+Mixins are classes that inherit from `Mixin` and provide functionality that can be mixed into a `Mixer` instance. Methods can be marked for export using the `@export` decorator, making them directly accessible from the mixer instance.
+
+```python
+class CounterMixin(Mixin):
+    def __init__(self):
+        super().__init__()
+        self.value = 0
+    
+    @export
+    def increment(self):
+        self.value += 1
+        return self.value
+```
+
+### Initialization
+
+Mixins can define an optional `mix_init` method that will be called when the mixin is added to a mixer. Any additional keyword arguments passed to `add_mixin` will be forwarded to `mix_init`.
+
+```python
+class MathMixin(Mixin):
+    def __init__(self):
+        super().__init__()
+        self.precision = 2
+    
+    def mix_init(self, precision: int = 2, **kwargs):
+        self.precision = precision
+    
+    @export
+    def add(self, a: float, b: float) -> float:
+        return round(a + b, self.precision)
+
+mixer.add_mixin("math", MathMixin, precision=3)
+```
+
+### Method Export
+
+Methods marked with `@export` are made available directly on the mixer instance. If multiple mixins try to export methods with the same name, only the first one is exported and conflicts are tracked.
+
+```python
+# Method available directly on mixer
+result = mixer.add(1.23, 4.56)
+
+# Access through mixin instance
+result = mixer.math.add(1.23, 4.56)
+
+# Check for conflicts
+conflicts = mixer.get_conflicts()
+```
+
+### Mixin Coordination
+
+Mixins can coordinate with each other through the mixer instance, which is accessible via the `mixer` property:
+
+```python
+class WorkerMixin(Mixin):
+    @export
+    def do_work(self):
+        self.mixer.log("Starting work")  # Use another mixin's exported method
+        result = self.perform_work()
+        self.mixer.logger.log("Done!")   # Access mixin instance directly
+        return result
+```
+
+## API Reference
+
+### Mixer
+
+- `add_mixin(name: str, mixin_class: Type[Mixin], **kwargs) -> Mixin`
+- `remove_mixin(name: str) -> None`
+- `get_mixin(name: str) -> Mixin`
+- `get_mixins() -> Dict[str, Mixin]`
+- `get_conflicts() -> Dict[str, List[str]]`
+
+### Mixin
+
+- `mix_init(**kwargs) -> None`
+- `cleanup() -> None`
+- `mixer` property
+
+### Decorators
+
+- `@export` - Mark a method for export to the mixer namespace
+
+## License
+
+MIT License
