@@ -1,4 +1,4 @@
-from typing import Type, Dict, List
+from typing import Type, Dict, List, Any
 import logging
 
 from .base import Mixin
@@ -40,8 +40,8 @@ class Mixer:
 		
 		# Create instance
 		instance = mixin_class()
-		# Set mixer using the custom attribute name
-		setattr(instance, f"_{instance._mixer_attr}", self)
+		# Set mixer using the set_mixer method
+		instance.set_mixer(self)
 		
 		# Store the instance
 		self._mixins[name] = instance
@@ -103,3 +103,34 @@ class Mixer:
 	def get_conflicts(self) -> Dict[str, List[str]]:
 		"""Get information about method export conflicts."""
 		return self._method_conflicts.copy()
+	
+	def call_all_mixins(self, func_name: str, *args, **kwargs) -> Dict[str, Any]:
+		"""
+		Call a function on all mixins that have it with the given arguments.
+		
+		Args:
+			func_name: Name of the function to call on each mixin
+			*args: Positional arguments to pass to the function
+			**kwargs: Keyword arguments to pass to the function
+			
+		Returns:
+			Dict mapping mixin names to their function results
+		
+		Raises:
+			AttributeError: If no mixin has the specified function or if it exists but is not callable
+		"""
+		results = {}
+		found = False
+		
+		for name, mixin in self._mixins.items():
+			if hasattr(mixin, func_name):
+				found = True
+				func = getattr(mixin, func_name)
+				if not callable(func):
+					raise AttributeError(f"'{func_name}' in mixin '{name}' is not callable")
+				results[name] = func(*args, **kwargs)
+		
+		if not found:
+			raise AttributeError(f"No mixin has function '{func_name}'")
+			
+		return results

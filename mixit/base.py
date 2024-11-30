@@ -33,6 +33,10 @@ class Mixin:
 		"""Clean up resources. Called when removing the mixin."""
 		logger.info(f"Cleaning up mixin {self.__class__.__name__}")
 	
+	def set_mixer(self, mixer: Any) -> None:
+		"""Set the mixer instance for this mixin."""
+		setattr(self, f"_{self._mixer_attr}", mixer)
+		
 	def __getattr__(self, name):
 		"""Support custom mixer attribute name."""
 		if name == self._mixer_attr:

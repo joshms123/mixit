@@ -192,3 +192,42 @@ def test_custom_mixer_attr():
 	with pytest.raises(RuntimeError) as exc:
 		_ = unattached.container
 	assert "not attached to a mixer" in str(exc.value)
+
+def test_call_all_mixins():
+	mixer = Mixer()
+	
+	# Test calling a method on all mixins of same type
+	mixer.add_mixin("logger1", LoggerMixin, prefix="[1] ")
+	mixer.add_mixin("logger2", LoggerMixin, prefix="[2] ")
+	
+	results = mixer.call_all_mixins("log", "test message")
+	assert results == {"logger1": 1, "logger2": 1}
+	assert mixer.logger1.logs == ["[1] test message"]
+	assert mixer.logger2.logs == ["[2] test message"]
+	
+	# Test with args and kwargs
+	class ConfigMixin(Mixin):
+		def set_config(self, name, value=None, prefix=""):
+			self.name = prefix + name
+			self.value = value
+			return self.name
+	
+	mixer.add_mixin("cfg1", ConfigMixin)
+	mixer.add_mixin("cfg2", ConfigMixin)
+	
+	# Call method only on config mixins
+	results = mixer.call_all_mixins("set_config", "test", value=42, prefix="config_")
+	assert results == {"cfg1": "config_test", "cfg2": "config_test"}
+	assert mixer.cfg1.value == 42
+	assert mixer.cfg2.value == 42
+	
+	# Test with non-existent method
+	with pytest.raises(AttributeError) as exc:
+		mixer.call_all_mixins("nonexistent_method")
+	assert "No mixin has function 'nonexistent_method'" == str(exc.value)
+	
+	# Test with non-callable attribute
+	mixer.cfg1.test_attr = "not callable"
+	with pytest.raises(AttributeError) as exc:
+		mixer.call_all_mixins("test_attr")
+	assert "is not callable" in str(exc.value)
