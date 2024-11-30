@@ -1,5 +1,6 @@
-from typing import Type, Dict, List
+from typing import Type, Dict, List, Any
 import logging
+import copy
 
 from .base import Mixin
 from .exceptions import (
@@ -103,3 +104,68 @@ class Mixer:
 	def get_conflicts(self) -> Dict[str, List[str]]:
 		"""Get information about method export conflicts."""
 		return self._method_conflicts.copy()
+	
+	def remove_all_mixins(self) -> None:
+		"""Remove all mixins from the mixer."""
+		logger.info("Removing all mixins")
+		for name in list(self._mixins.keys()):
+			self.remove_mixin(name)
+	
+	def __copy__(self) -> 'Mixer':
+		"""Support for copy.copy()."""
+		logger.debug("Creating shallow copy of Mixer")
+		new_mixer = Mixer()
+		
+		# Copy mixins without their exported methods
+		for name, mixin in self._mixins.items():
+			mixin_class = mixin.__class__
+			# Create a shallow copy of the mixin
+			new_mixin = copy.copy(mixin)
+			# Reset mixer reference to the new mixer
+			setattr(new_mixin, f"_{new_mixin._mixer_attr}", new_mixer)
+			# Store the mixin
+			new_mixer._mixins[name] = new_mixin
+			setattr(new_mixer, name, new_mixin)
+			# Re-export methods
+			for method_name in mixin_class._exports:
+				if not hasattr(new_mixer, method_name):
+					method = getattr(new_mixin, method_name)
+					setattr(new_mixer, method_name, method)
+		
+		# Copy conflict tracking
+		new_mixer._method_conflicts = copy.copy(self._method_conflicts)
+		return new_mixer
+	
+	def __deepcopy__(self, memo: Dict[int, Any]) -> 'Mixer':
+		"""Support for copy.deepcopy()."""
+		logger.debug("Creating deep copy of Mixer")
+		# First create a shallow copy
+		new_mixer = copy.copy(self)
+		# Store it in the memo to handle circular references
+		memo[id(self)] = new_mixer
+		
+		# Now deep copy the mixins
+		for name, mixin in list(new_mixer._mixins.items()):
+			try:
+				# Remove the mixin temporarily to avoid circular references
+				delattr(new_mixer, name)
+				del new_mixer._mixins[name]
+				# Create deep copy of the mixin
+				new_mixin = copy.deepcopy(mixin, memo)
+				# Reset mixer reference
+				setattr(new_mixin, f"_{new_mixin._mixer_attr}", new_mixer)
+				# Store the mixin
+				new_mixer._mixins[name] = new_mixin
+				setattr(new_mixer, name, new_mixin)
+				# Re-export methods
+				for method_name in new_mixin.__class__._exports:
+					if not hasattr(new_mixer, method_name):
+						method = getattr(new_mixin, method_name)
+						setattr(new_mixer, method_name, method)
+			except Exception as e:
+				logger.warning(f"Failed to deep copy mixin '{name}': {e}")
+				continue
+		
+		# Deep copy conflict tracking
+		new_mixer._method_conflicts = copy.deepcopy(self._method_conflicts, memo)
+		return new_mixer
