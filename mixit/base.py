@@ -7,13 +7,17 @@ class Mixin:
 	"""Base class for all mixins."""
 	
 	_exports: ClassVar[List[str]] = []
+	_mixer_attr: ClassVar[str] = 'mixer'  # Default mixer attribute name
 	
 	def __init__(self):
-		self._mixer = None  # Will be set by Mixer when added
+		# Initialize mixer storage with None
+		setattr(self, f"_{self._mixer_attr}", None)
 		
-	def __init_subclass__(cls, **kwargs):
+	def __init_subclass__(cls, *, mixer_attr: str = None, **kwargs):
 		super().__init_subclass__(**kwargs)
 		cls._exports = []
+		if mixer_attr is not None:
+			cls._mixer_attr = mixer_attr
 		
 		# Collect exported methods
 		for name, value in cls.__dict__.items():
@@ -29,9 +33,11 @@ class Mixin:
 		"""Clean up resources. Called when removing the mixin."""
 		logger.info(f"Cleaning up mixin {self.__class__.__name__}")
 	
-	@property
-	def mixer(self):
-		"""Get the mixer instance this mixin is attached to."""
-		if self._mixer is None:
-			raise RuntimeError(f"Mixin {self.__class__.__name__} is not attached to a mixer")
-		return self._mixer
+	def __getattr__(self, name):
+		"""Support custom mixer attribute name."""
+		if name == self._mixer_attr:
+			value = getattr(self, f"_{name}")
+			if value is None:
+				raise RuntimeError(f"Mixin {self.__class__.__name__} is not attached to a mixer")
+			return value
+		raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")

@@ -100,9 +100,10 @@ conflicts = mixer.get_conflicts()
 
 ### Mixin Coordination
 
-Mixins can coordinate with each other through the mixer instance, which is accessible via the `mixer` property:
+Mixins can coordinate with each other through the mixer instance. By default, the mixer is accessible via the `mixer` property, but you can customize this name to avoid conflicts or improve readability:
 
 ```python
+# Using default 'mixer' attribute
 class WorkerMixin(Mixin):
     @export
     def do_work(self):
@@ -110,7 +111,15 @@ class WorkerMixin(Mixin):
         result = self.perform_work()
         self.mixer.logger.log("Done!")   # Access mixin instance directly
         return result
-```
+
+# Using custom mixer attribute name
+class DatabaseMixin(Mixin, mixer_attr='app'):
+    @export
+    def query(self, sql: str):
+        # Access mixer through custom name
+        logger = self.app.logger
+        logger.log(f"Executing: {sql}")
+        return self.execute_query(sql)
 
 ## API Reference
 
@@ -124,9 +133,10 @@ class WorkerMixin(Mixin):
 
 ### Mixin
 
-- `mix_init(**kwargs) -> None`
-- `cleanup() -> None`
-- `mixer` property
+- `mix_init(**kwargs) -> None` - Optional initialization method
+- `cleanup() -> None` - Clean up resources when removed
+- `mixer` property - Default access to mixer instance
+- `mixer_attr` class parameter - Customize mixer attribute name (e.g. `class MyMixin(Mixin, mixer_attr='app')`)
 
 ### Decorators
 

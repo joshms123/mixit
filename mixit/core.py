@@ -40,7 +40,8 @@ class Mixer:
 		
 		# Create instance
 		instance = mixin_class()
-		instance._mixer = self  # Give mixin access to its mixer
+		# Set mixer using the custom attribute name
+		setattr(instance, f"_{instance._mixer_attr}", self)
 		
 		# Store the instance
 		self._mixins[name] = instance

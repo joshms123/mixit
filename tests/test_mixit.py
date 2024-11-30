@@ -170,3 +170,25 @@ def test_mixer_access():
 	with pytest.raises(RuntimeError) as exc:
 		_ = unattached.mixer
 	assert "not attached to a mixer" in str(exc.value)
+
+class CustomMixerMixin(Mixin, mixer_attr='container'):
+	@export
+	def get_value(self):
+		return 42
+
+def test_custom_mixer_attr():
+	mixer = Mixer()
+	mixer.add_mixin("custom", CustomMixerMixin)
+	
+	# Can access mixer through custom attribute
+	assert mixer.custom.container is mixer
+	assert not hasattr(mixer.custom, 'mixer')
+	
+	# Original functionality works
+	assert mixer.get_value() == 42
+	
+	# Error still raised when not attached
+	unattached = CustomMixerMixin()
+	with pytest.raises(RuntimeError) as exc:
+		_ = unattached.container
+	assert "not attached to a mixer" in str(exc.value)
