@@ -120,6 +120,7 @@ class DatabaseMixin(Mixin, mixer_attr='app'):
         logger = self.app.logger
         logger.log(f"Executing: {sql}")
         return self.execute_query(sql)
+```
 
 ## API Reference
 
