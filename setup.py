@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mixit",
-    version="0.6.0",
+    version="0.7.0",
     description="A simple mixin system with method exports",
     packages=find_packages(exclude=["tests", "tests.*"]),
     python_requires=">=3.7",

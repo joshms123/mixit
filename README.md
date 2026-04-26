@@ -45,6 +45,25 @@ mixer.log("Hello world!")  # Returns: 1
 print(mixer.logger.logs)   # Prints: ['[INFO] Hello world!']
 ```
 
+### Auto-derived names (v0.7+)
+
+You can omit the explicit name. The mixer derives one by converting the class name to snake_case:
+
+```python
+mixer = Mixer()
+mixer.add_mixin(LoggerMixin, prefix="[INFO] ")  # registered as "logger_mixin"
+mixer.log("Hello!")
+print(mixer.logger_mixin.logs)
+```
+
+For batches of plain mixins (no `mix_init` kwargs), `add_mixins` registers them in order:
+
+```python
+mixer.add_mixins(CounterMixin, MathMixin, LoggerMixin)
+mixer.add_mixin(DatabaseMixin, dsn="...")  # use add_mixin for kwarg cases
+mixer.add_mixins(CacheMixin, MetricsMixin)
+```
+
 ## Core Concepts
 
 ### Mixins
@@ -126,11 +145,20 @@ class DatabaseMixin(Mixin, mixer_attr='app'):
 
 ### Mixer
 
-- `add_mixin(name: str, mixin_class: Type[Mixin], **kwargs) -> Mixin`
+- `add_mixin(mixin_class: Type[Mixin], **kwargs) -> Mixin` — auto-derives the registration name from the class name.
+- `add_mixin(name: str, mixin_class: Type[Mixin], **kwargs) -> Mixin` — explicit name.
+- `add_mixin_instance(instance: Mixin) -> Mixin` — auto-derives the name; for pre-built instances.
+- `add_mixin_instance(name: str, instance: Mixin) -> Mixin` — explicit name.
+- `add_mixins(*mixin_classes: Type[Mixin]) -> List[Mixin]` — bulk-register plain mixins in order, no kwargs.
 - `remove_mixin(name: str) -> None`
 - `get_mixin(name: str) -> Mixin`
 - `get_mixins() -> Dict[str, Mixin]`
 - `get_conflicts() -> Dict[str, List[str]]`
+- `call_all_mixins(func_name: str, *args, **kwargs) -> Dict[str, Any]`
+
+### Helpers
+
+- `derive_mixin_name(cls: Type[Mixin]) -> str` — exported helper that converts a class name to its snake_case registration key.
 
 ### Mixin
 

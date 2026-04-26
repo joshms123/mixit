@@ -1,5 +1,5 @@
 import pytest
-from mixit import Mixer, Mixin, export
+from mixit import Mixer, Mixin, export, derive_mixin_name
 from mixit.exceptions import (
         MixinNotFoundError,
         DuplicateMixinError,
@@ -372,6 +372,151 @@ def test_auto_export_inheritance_chain():
         mixer.add_mixin("l3", Level3)
         assert hasattr(mixer, "new_method")
         assert not hasattr(mixer, "handle_old")
+
+def test_derive_mixin_name():
+        class SimpleDialogMixin(Mixin):
+                pass
+
+        class ConfigMixin(Mixin):
+                pass
+
+        class MastodonTimelineSubhandler(Mixin):
+                pass
+
+        class XMLParser(Mixin):
+                pass
+
+        class GUIAPI(Mixin):
+                pass
+
+        assert derive_mixin_name(SimpleDialogMixin) == "simple_dialog_mixin"
+        assert derive_mixin_name(ConfigMixin) == "config_mixin"
+        assert derive_mixin_name(MastodonTimelineSubhandler) == "mastodon_timeline_subhandler"
+        assert derive_mixin_name(XMLParser) == "xml_parser"
+        assert derive_mixin_name(GUIAPI) == "guiapi"
+
+def test_add_mixin_class_only():
+        mixer = Mixer()
+        mixer.add_mixin(CounterMixin)
+
+        # Name is auto-derived as "counter_mixin"
+        assert hasattr(mixer, "counter_mixin")
+        assert hasattr(mixer, "increment")
+        assert mixer.increment() == 1
+
+def test_add_mixin_class_only_with_kwargs():
+        mixer = Mixer()
+        mixer.add_mixin(MathMixin, precision=3)
+
+        assert hasattr(mixer, "math_mixin")
+        assert mixer.math_mixin.precision == 3
+        assert mixer.add(1.2345, 2.3456) == 3.58
+
+def test_add_mixin_explicit_name_still_works():
+        mixer = Mixer()
+        mixer.add_mixin("counter", CounterMixin)
+
+        assert hasattr(mixer, "counter")
+        assert not hasattr(mixer, "counter_mixin")
+        assert mixer.increment() == 1
+
+def test_add_mixin_invalid_first_arg():
+        mixer = Mixer()
+        with pytest.raises(InvalidMixinError):
+                mixer.add_mixin(42)
+
+def test_add_mixin_string_without_class():
+        mixer = Mixer()
+        with pytest.raises(InvalidMixinError):
+                mixer.add_mixin("name")
+
+def test_add_mixin_class_and_kwarg_class_conflict():
+        mixer = Mixer()
+        with pytest.raises(InvalidMixinError):
+                mixer.add_mixin(CounterMixin, mixin_class=MathMixin)
+
+def test_add_mixin_instance_instance_only():
+        mixer = Mixer()
+        counter = CounterMixin()
+        counter.value = 7
+        mixer.add_mixin_instance(counter)
+
+        assert hasattr(mixer, "counter_mixin")
+        assert mixer.counter_mixin is counter
+        assert mixer.increment() == 8
+
+def test_add_mixin_instance_explicit_name_still_works():
+        mixer = Mixer()
+        counter = CounterMixin()
+        mixer.add_mixin_instance("counter", counter)
+
+        assert hasattr(mixer, "counter")
+        assert not hasattr(mixer, "counter_mixin")
+
+def test_add_mixins_variadic():
+        class MixinA(Mixin):
+                pass
+
+        class MixinB(Mixin):
+                pass
+
+        class MixinC(Mixin):
+                pass
+
+        mixer = Mixer()
+        instances = mixer.add_mixins(MixinA, MixinB, MixinC)
+
+        # All registered with auto-derived names
+        assert hasattr(mixer, "mixin_a")
+        assert hasattr(mixer, "mixin_b")
+        assert hasattr(mixer, "mixin_c")
+
+        # Instances returned in input order
+        assert len(instances) == 3
+        assert isinstance(instances[0], MixinA)
+        assert isinstance(instances[1], MixinB)
+        assert isinstance(instances[2], MixinC)
+
+        # Mixer's _mixins dict preserves registration order (Python 3.7+)
+        assert list(mixer.get_mixins().keys()) == ["mixin_a", "mixin_b", "mixin_c"]
+
+def test_add_mixins_empty():
+        mixer = Mixer()
+        instances = mixer.add_mixins()
+        assert instances == []
+
+def test_add_mixins_invalid_class():
+        mixer = Mixer()
+
+        class NotAMixin:
+                pass
+
+        with pytest.raises(InvalidMixinError):
+                mixer.add_mixins(NotAMixin)
+
+def test_add_mixins_preserves_order_around_kwargs_call():
+        # Pattern from real usage: bulk-add some plain mixins, then add a parameterized
+        # one with add_mixin, then bulk-add more.
+        class First(Mixin):
+                pass
+
+        class Second(Mixin):
+                pass
+
+        class WithKwargs(Mixin):
+                def mix_init(self, value=0, **kwargs):
+                        self.value = value
+
+        class Third(Mixin):
+                pass
+
+        mixer = Mixer()
+        mixer.add_mixins(First, Second)
+        mixer.add_mixin(WithKwargs, value=42)
+        mixer.add_mixins(Third)
+
+        assert list(mixer.get_mixins().keys()) == ["first", "second", "with_kwargs", "third"]
+        assert mixer.with_kwargs.value == 42
 
 def test_mixed_export_methods():
         mixer = Mixer()
